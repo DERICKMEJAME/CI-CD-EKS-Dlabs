@@ -1,0 +1,51 @@
+name: Deploy to env
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+
+  deploy:
+    name: Build image
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v2
+      
+    - uses: azure/setup-kubectl@v3
+      with:
+         version: 'latest' # default is latest stable
+         id: install
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: eu-west-1
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+      
+    - name: Build, tag, and push image to Amazon ECR
+      env:
+        ECR_REGISTRY: aws ecr get-login-password --region eu-west-1 | docker login --username AWS --password-stdin 706452782103.dkr.ecr.eu-west-1.amazonaws.com
+        ECR_REPOSITORY: hello-world
+        IMAGE_TAG: latest
+      run: |
+          aws ecr get-login-password --region eu-west-1 | docker login --username AWS --password-stdin 706452782103.dkr.ecr.eu-west-1.amazonaws.com
+          docker build -t helloworld .
+          docker tag hello-world:latest 706452782103.dkr.ecr.eu-west-1.amazonaws.com/hello-world:latest
+          docker push 706452782103.dkr.ecr.eu-west-1.amazonaws.com/hello-world:latest
+          
+    - name: Update kube config
+      run: aws eks update-kubeconfig --name hello-world --region eu-west-1
+
+    - name: Deploy image to Amazon EKS
+      run: |
+        kubectl apply -f deployment.yaml
+        kubectl apply -f service.yaml
+        kubectl rollout restart -f deployment.yaml
