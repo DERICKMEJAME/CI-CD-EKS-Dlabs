@@ -41,4 +41,5 @@ phases:
       - echo Push the latest image to cluster
       - aws eks update-kubeconfig --region eu-west-1 --name hello-world     
       - kubectl apply -f deployment.yaml
+      - kubectl apply -f service.yaml
       - kubectl rollout restart -f deployment.yaml
